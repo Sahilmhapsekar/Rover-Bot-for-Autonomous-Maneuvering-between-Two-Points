@@ -1,0 +1,316 @@
+#include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
+
+//const char* ssid = "CHENAB";
+//const char* password = "44zMf3QdU&KC3Mv";
+//const char* ssid = "IITRPR";
+//const char* password = "V#6qF?pyM!bQ$%NX";
+const char* ssid = "Redmi 10";
+const char* password = "ConnectWifi";
+
+ESP8266WebServer server(80);
+
+#define MOTOR1_IN1 D1
+#define MOTOR1_IN2 D2
+#define MOTOR1_EN  D5
+#define MOTOR2_IN1 D3
+#define MOTOR2_IN2 D4
+#define MOTOR2_EN  D6
+
+double steptheta = 1028;
+double stepr = 1450;
+
+double x1, ey1, x2, y2, dr, dt = 0;
+
+void setMotor1(double speed, bool direction) {
+  digitalWrite(MOTOR1_IN1, direction ? LOW : HIGH);
+  digitalWrite(MOTOR1_IN2, direction ? HIGH : LOW);
+  analogWrite(MOTOR1_EN, speed);
+}
+
+void setMotor2(double speed, bool direction) {
+  digitalWrite(MOTOR2_IN1, direction ? HIGH : LOW);
+  digitalWrite(MOTOR2_IN2, direction ? LOW : HIGH);
+  analogWrite(MOTOR2_EN, speed);
+}
+
+void zfwd(){
+    setMotor1(255, true);
+    setMotor2(255, true);
+    server.send(200, "text/plain", "Motors running forward.");
+  }
+
+void zbwd(){
+    setMotor1(255, false);
+    setMotor2(255, false);
+    server.send(200, "text/plain", "Motors running backward.");
+  }
+
+void zqfwd(double a){
+    setMotor1(255, true);
+    setMotor2(255, true);
+    server.send(200, "text/plain", "Motors running forward.");
+    delay(a*stepr); 
+    setMotor1(0, true);
+    setMotor2(0, true);
+    server.send(200, "text/plain", "Motors stopped.");
+  }
+
+void zqbwd(double a){
+    setMotor1(255, false);
+    setMotor2(255, false);
+    server.send(200, "text/plain", "Motors running backward.");
+    delay(a*stepr); 
+    setMotor1(0, true);
+    setMotor2(0, true);
+    server.send(200, "text/plain", "Motors stopped.");
+  }
+
+void zright(){
+    setMotor1(100, true);
+    setMotor2(100, false);
+    server.send(200, "text/plain", "Turning Right.");
+  }
+
+void zleft(){
+    setMotor1(100, false);
+    setMotor2(100, true);
+    server.send(200, "text/plain", "Turning Left.");
+  }
+
+void zsettheta(double a) {
+      steptheta = a;
+      server.send(200, "text/plain", "Delay angle set to " + String(steptheta) + " ms");
+  }
+
+void zsetr(double a) {
+      stepr = a;
+      server.send(200, "text/plain", "Delay dist set to " + String(stepr) + " ms");
+  }
+
+void zqright(double a){
+    setMotor1(100, true);
+    setMotor2(100, false);
+    server.send(200, "text/plain", "Turning Right.");
+    delay(a*steptheta); 
+    setMotor1(0, true);
+    setMotor2(0, true);
+    server.send(200, "text/plain", "Motors stopped.");
+  }
+
+void zqleft(double a){
+    setMotor1(100, false);
+    setMotor2(100, true);
+    server.send(200, "text/plain", "Turning Left.");
+    delay(a*steptheta);
+    setMotor1(0, true);
+    setMotor2(0, true);
+    server.send(200, "text/plain", "Motors stopped.");
+  }
+
+void zstop(){
+    setMotor1(0, true);
+    setMotor2(0, true);
+    server.send(200, "text/plain", "Motors stopped.");
+  }
+
+int zmove(double a2, double b2, double a1, double b1){
+  double kachra = 0;
+  double bachra = 0;
+  double dx = a2 - a1;
+  double dy = b2 - b1;
+  dr = sqrt((dx*dx)+(dy*dy));
+  if(dr==0){
+    server.send(200, "text/plain", "Already broken.- Tommy Shelby");
+    dx=0;
+    dy=0;
+    dr=0;
+    dt=0;
+    return 0;
+  }
+  if(dy==0){
+    if(dx>0){
+      dt=0;
+    }
+    if(dx<0){
+      dt=3.1416;
+    }
+  }
+  else if(dx==0){
+    if(dy>0){
+      dt=1.5708;
+    }
+    if(dy<0){
+      dt=4.7124;
+    }
+  }
+
+  kachra = abs(dy/dx);
+  bachra = atan(kachra);
+  
+  if(dx>0&&dy>0){
+    dt = bachra;
+  }
+  if(dx<0&&dy>0){
+    dt = 3.1416-bachra;
+  }
+  if(dx<0&&dy<0){
+    dt = 3.1416+bachra;
+  }
+  if(dx>0&&dy<0){
+    dt = 6.2832-bachra;
+  }
+
+  zqleft((dt)/1.5708);
+  zqfwd(dr);
+  zqright((dt)/1.5708);
+
+  dx=0;
+  dy=0;
+  dr=0;
+  dt=0;
+  kachra=0;
+  bachra=0;
+
+  server.send(200, "text/plain", "Dikha Di Tujhe Teri Jagah.- Crescent Ninja");
+  return 0;
+
+} 
+
+void setup() {
+
+  pinMode(MOTOR1_IN1, OUTPUT);
+  pinMode(MOTOR1_IN2, OUTPUT);
+  pinMode(MOTOR1_EN, OUTPUT);
+  pinMode(MOTOR2_IN1, OUTPUT);
+  pinMode(MOTOR2_IN2, OUTPUT);
+  pinMode(MOTOR2_EN, OUTPUT);
+
+  Serial.begin(115200);
+  Serial.println("Connecting to WiFi...");
+  WiFi.begin(ssid, password);
+  
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  
+  Serial.println();
+  Serial.print("Connected to WiFi with IP: ");
+  Serial.println(WiFi.localIP());
+
+  server.on("/", []() {
+    server.send(200, "text/plain", "Use /move, /fwd, /bwd, /qfwd, /qbwd, /right, /left, /settheta, /setr /qr, /ql, /stop");
+  });
+
+  server.on("/move", []() {
+    if (server.hasArg("arg1") && server.hasArg("arg2")) { // Check if both arguments exist
+      x2 = server.arg("arg1").toDouble(); // Convert to integer
+      y2 = server.arg("arg2").toDouble(); // Convert to integer
+      server.send(200, "text/plain", "Values set: arg1 = " + String(x2) + ", arg2 = " + String(y2));
+      zmove(x2, y2, x1, ey1);
+      x1=x2;
+      ey1=y2;
+    } else {
+      server.send(400, "text/plain", "Missing one or both arguments.");
+    }
+  });
+
+  server.on("/fwd", []() {
+    setMotor1(255, true);
+    setMotor2(255, true);
+    server.send(200, "text/plain", "Motors running forward.");
+  });
+
+  server.on("/bwd", []() {
+    setMotor1(255, false);
+    setMotor2(255, false);
+    server.send(200, "text/plain", "Motors running backward.");
+  });
+
+  server.on("/qfwd", []() {
+    setMotor1(255, true);
+    setMotor2(255, true);
+    server.send(200, "text/plain", "Motors running forward.");
+    delay(stepr); 
+    setMotor1(0, true);
+    setMotor2(0, true);
+    server.send(200, "text/plain", "Motors stopped.");
+  });
+
+  server.on("/qbwd", []() {
+    setMotor1(255, false);
+    setMotor2(255, false);
+    server.send(200, "text/plain", "Motors running backward.");
+    delay(stepr); 
+    setMotor1(0, true);
+    setMotor2(0, true);
+    server.send(200, "text/plain", "Motors stopped.");
+  });
+
+  server.on("/right", []() {
+    setMotor1(100, true);
+    setMotor2(100, false);
+    server.send(200, "text/plain", "Turning Right.");
+  });
+
+  server.on("/left", []() {
+    setMotor1(100, false);
+    setMotor2(100, true);
+    server.send(200, "text/plain", "Turning Left.");
+  });
+
+  server.on("/settheta", []() {
+    if (server.hasArg("theta")) {
+      steptheta = server.arg("theta").toDouble();
+      server.send(200, "text/plain", "Delay angle set to " + String(steptheta) + " ms");
+    } else {
+      server.send(400, "text/plain", "No delay parameter provided.");
+    }
+  });
+
+  server.on("/setr", []() {
+    if (server.hasArg("r")) {
+      stepr = server.arg("r").toDouble();
+      server.send(200, "text/plain", "Delay dist set to " + String(stepr) + " ms");
+    } else {
+      server.send(400, "text/plain", "No delay parameter provided.");
+    }
+  });
+
+  server.on("/qr",[](){
+    setMotor1(100, true);
+    setMotor2(100, false);
+    server.send(200, "text/plain", "Turning Right.");
+    delay(steptheta); 
+    setMotor1(0, true);
+    setMotor2(0, true);
+    server.send(200, "text/plain", "Motors stopped.");
+  });
+
+  server.on("/ql",[](){
+    setMotor1(100, false);
+    setMotor2(100, true);
+    server.send(200, "text/plain", "Turning Left.");
+    delay(steptheta);
+    setMotor1(0, true);
+    setMotor2(0, true);
+    server.send(200, "text/plain", "Motors stopped.");
+  });
+
+  server.on("/stop", []() {
+    setMotor1(0, true);
+    setMotor2(0, true);
+    server.send(200, "text/plain", "Motors stopped.");
+  });
+
+  server.onNotFound([]() {
+    server.send(404, "text/plain", "Unknown command.");
+  });
+
+  server.begin();
+}
+
+void loop() {
+  server.handleClient();
+}
