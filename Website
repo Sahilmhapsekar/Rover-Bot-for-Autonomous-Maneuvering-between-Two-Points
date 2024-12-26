@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ESP32 Controller</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      text-align: center;
+    }
+    .btn {
+      background-color: #4CAF50;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 10px;
+    }
+    .btn:hover {
+      background-color: #45a049;
+    }
+    .disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    .input-group {
+      margin: 10px 0;
+    }
+  </style>
+  <script>
+    let espIpAddress = "";
+
+    function sendCommand(endpoint, method, data = "") {
+      if (!espIpAddress) {
+        alert("Please set the ESP32 IP address first.");
+        return;
+      }
+      const url = `http://${espIpAddress}${endpoint}`;
+      const xhr = new XMLHttpRequest();
+      xhr.open(method, url, true);
+      xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState === 4) {
+          if (xhr.status === 200) {
+            alert(xhr.responseText);
+          } else {
+           // alert("Error: " + xhr.status + " - " + xhr.responseText);
+          }
+        }
+      };
+      xhr.send(data);
+    }
+
+    function handleCommand(endpoint, inputs = {}) {
+      const queryString = Object.keys(inputs)
+        .map(key => encodeURIComponent(key) + "=" + encodeURIComponent(inputs[key]))
+        .join("&");
+      sendCommand(endpoint, "POST", queryString);
+    }
+
+    function setIpAddress() {
+      const ipInput = document.getElementById("ip-address");
+      espIpAddress = ipInput.value.trim();
+      if (espIpAddress) {
+        // Enable all buttons once the IP address is set
+        const buttons = document.querySelectorAll(".btn-command");
+        buttons.forEach((button) => button.classList.remove("disabled"));
+        alert(`ESP32 IP address set to: ${espIpAddress}`);
+      } else {
+        alert("Please enter a valid IP address.");
+      }
+    }
+  </script>
+</head>
+<body>
+  <h1>ESP32 Motor Controller</h1>
+
+  <!-- Set IP Address -->
+  <div class="input-group">
+    <label for="ip-address">ESP32 IP Address:</label>
+    <input type="text" id="ip-address" placeholder="e.g., 192.168.1.10">
+    <button class="btn" onclick="setIpAddress()">Set IP Address</button>
+  </div>
+
+  <!-- Direct Control -->
+  <div>
+    <button class="btn btn-command disabled" onclick="handleCommand('/fwd')">Forward</button>
+    <button class="btn btn-command disabled" onclick="handleCommand('/bwd')">Backward</button>
+  </div>
+
+  <div>
+    <button class="btn btn-command disabled" onclick="handleCommand('/right')">Turn Right</button>
+    <button class="btn btn-command disabled" onclick="handleCommand('/left')">Turn Left</button>
+  </div>
+
+  <!-- Stop Motors -->
+  <div>
+    <button class="btn btn-command disabled" onclick="handleCommand('/stop')">Stop Motors</button>
+  </div>
+
+  <!-- Set Theta and R -->
+  <div class="input-group">
+    <label for="theta">Theta:</label>
+    <input type="number" id="theta" step="0.01">
+    <button class="btn btn-command disabled" onclick="handleCommand('/settheta', { theta: document.getElementById('theta').value })">Set Theta</button>
+  </div>
+
+  <div class="input-group">
+    <label for="r">R:</label>
+    <input type="number" id="r" step="0.01">
+    <button class="btn btn-command disabled" onclick="handleCommand('/setr', { r: document.getElementById('r').value })">Set R</button>
+  </div>
+
+  <!-- Move Command -->
+  <div class="input-group">
+    <label for="arg1">X Position:</label>
+    <input type="number" id="arg1" step="0.01">
+  </div>
+
+  <div class="input-group">
+    <label for="arg2">Y Position:</label>
+    <input type="number" id="arg2" step="0.01">
+    <button class="btn btn-command disabled" onclick="handleCommand('/move', { arg1: document.getElementById('arg1').value, arg2: document.getElementById('arg2').value })">Move</button>
+  </div>
+</body>
+</html>
